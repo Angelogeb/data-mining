@@ -3,9 +3,11 @@ from lxml import html
 import requests
 import csv
 import datetime 
+from multiprocessing import Process
 
 parser = argparse.ArgumentParser(description='Scrape kijiji.it Informatica/Grafica/Web category')
-parser.add_argument('--full_desc', help='Download full description', action='store_true')
+parser.add_argument('-f','--full_desc', help='Download full description', action='store_true')
+parser.add_argument('-n', '--n_proc', help='Number of processes to run', type=int, default = 6)
 args = parser.parse_args()
 
 
@@ -55,6 +57,7 @@ def crawl_and_save(urls, get_content, writer):
         content = get_content(html.fromstring(req.content))
         writer.writerows(content)
         n_items += len(content)
+    print(n_items, " Retrieved")
     return n_items
 
 def get_last_page(url):
@@ -63,27 +66,43 @@ def get_last_page(url):
     last_page = page.find_class("last-page")
     return int(last_page[0].text_content()) if last_page != [] else 1
 
+
+top_last_page = get_last_page(top_url + str(1))
+top_pages_urls = [top_url + str(i) for i in range(1, top_last_page + 1)]
+
+
+with open("top-"+file_name, "w") as f:
+
+    writer = csv.DictWriter(f, csv_keys, delimiter = "\t")
+    writer.writeheader()
+
+    n_top = crawl_and_save(top_pages_urls, get_top_announcements, writer)
+
+    print(top_last_page, "pages", n_top, "announcements in top announcements")
+
+
+reg_last_page = get_last_page(reg_url + str(1))
+reg_pages_urls = [reg_url + str(i) for i in range(1, reg_last_page + 1)]
+
+print("reg_last_page =", reg_last_page)
+
 def split_in(k, l):
     rem = len(l) % k
     list_len = len(l) // k
     if (rem != 0): list_len += 1
     return [l[i * list_len : (i+1) * list_len] for i in range(k)]
 
+urls_partitions = split_in(args.n_proc, reg_pages_urls)
 
-top_last_page = get_last_page(top_url + str(1))
-reg_last_page = get_last_page(reg_url + str(1))
-
-with open(file_name, "w") as f:
-
+ps = []
+for (i, par) in enumerate(urls_partitions):
+    f = open(str(i) + "-" + file_name, "w")
     writer = csv.DictWriter(f, csv_keys, delimiter = "\t")
-    writer.writeheader()
+    # writer.writeheader()
+    p = Process(target = crawl_and_save, args =(par, get_announcements, writer))
+    p.start()
+    ps.append((p, f))
 
-    top_pages_urls = (top_url + str(i) for i in range(1, top_last_page + 1))
-    reg_pages_urls = (reg_url + str(i) for i in range(1, reg_last_page + 1))
-
-    n_top = crawl_and_save(top_pages_urls, get_top_announcements, writer)
-    n_reg = crawl_and_save(reg_pages_urls, get_announcements, writer)
-
-    print(top_last_page, "pages", n_top, "announcements in top announcements")
-    print(reg_last_page, "pages", n_reg, "announcements in regular announcements")
-
+for (p, f) in ps:
+    p.join()
+    f.close()
