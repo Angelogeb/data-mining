@@ -1,7 +1,6 @@
 import argparse
 from lxml import html
 import requests
-import csv
 import datetime 
 from multiprocessing import Process
 
@@ -50,13 +49,21 @@ def get_top_announcements(page):
     announcements = (place.getparent() for place in places if not "extended-result" in place.getparent().getparent().classes)
     return [get_announcement_from_elem(elem) for elem in announcements]
 
-def crawl_and_save(urls, get_content, writer):
+def ann_to_csv(ann):
+    res = []
+    for k in ann:
+        res.append(ann[k])
+    return "\t".join(res) + "\n"
+
+def crawl_and_save(urls, get_content, f):
     n_items = 0
     for url in urls:
         req = requests.get(url)
         content = get_content(html.fromstring(req.content))
-        writer.writerows(content)
+        f.writelines([ann_to_csv(ann) for ann in content])
         n_items += len(content)
+
+    f.close()
     print(n_items, " Retrieved")
     return n_items
 
@@ -73,10 +80,9 @@ top_pages_urls = [top_url + str(i) for i in range(1, top_last_page + 1)]
 
 with open("top-"+file_name, "w") as f:
 
-    writer = csv.DictWriter(f, csv_keys, delimiter = "\t")
-    writer.writeheader()
+    f.write("\t".join(csv_keys) + "\n")
 
-    n_top = crawl_and_save(top_pages_urls, get_top_announcements, writer)
+    n_top = crawl_and_save(top_pages_urls, get_top_announcements, f)
 
     print(top_last_page, "pages", n_top, "announcements in top announcements")
 
@@ -97,12 +103,9 @@ urls_partitions = split_in(args.n_proc, reg_pages_urls)
 ps = []
 for (i, par) in enumerate(urls_partitions):
     f = open(str(i) + "-" + file_name, "w")
-    writer = csv.DictWriter(f, csv_keys, delimiter = "\t")
-    # writer.writeheader()
-    p = Process(target = crawl_and_save, args =(par, get_announcements, writer))
+    p = Process(target = crawl_and_save, args =(par, get_announcements, f))
     p.start()
     ps.append((p, f))
 
 for (p, f) in ps:
     p.join()
-    f.close()
