@@ -1,8 +1,12 @@
+#! /usr/bin/env python3
+
 import argparse
 from lxml import html
 import requests
 import datetime 
 from multiprocessing import Process
+import time
+
 
 parser = argparse.ArgumentParser(description='Scrape kijiji.it Informatica/Grafica/Web category')
 parser.add_argument('-f','--full_desc', help='Download full description', action='store_true')
@@ -14,7 +18,9 @@ csv_keys = ["title", "href", "city", "timestamp", "description"]
 if args.full_desc:
     csv_keys.append("full_description")
 
-now = str(datetime.datetime.now().isoformat()) + ("-full_desc" if args.full_desc else "")
+now = str(datetime.datetime.now().isoformat())
+now = now[:now.rfind(":")]
+now += ("-full_desc" if args.full_desc else "")
 file_name = now + "-announcements.tsv"
 
 top_url = "https://www.kijiji.it/offerte-di-lavoro/offerta/informatica-e-web/?top-ads="
@@ -33,9 +39,9 @@ def get_announcement_from_elem(ann_elem):
     res["timestamp"] = ann_elem.find_class("timestamp")[0].text_content()
 
     if args.full_desc:
-        full_desc_elem = html.fromstring(requests.get(res["href"])).find_class("vip__text-description")
+        full_desc_elem = html.fromstring(requests.get(res["href"]).content).find_class("vip__text-description")
         if full_desc_elem != []:
-            res["full_description"] = full_desc_elem[0].text_content()
+            res["full_description"] = escape_string(full_desc_elem[0].text_content())
 
     return res
 
@@ -55,17 +61,25 @@ def ann_to_csv(ann):
         res.append(ann[k])
     return "\t".join(res) + "\n"
 
-def crawl_and_save(urls, get_content, f):
+def crawl_and_save(prid, urls, get_content, f):
     n_items = 0
     for url in urls:
-        req = requests.get(url)
-        content = get_content(html.fromstring(req.content))
-        f.writelines([ann_to_csv(ann) for ann in content])
-        n_items += len(content)
-
+        bad_req = True
+        while bad_req:
+            try:
+                req = requests.get(url)
+                content = get_content(html.fromstring(req.content))
+                f.writelines([ann_to_csv(ann) for ann in content])
+                n_items += len(content)
+                bad_req = False
+            except (Exception, requests.exceptions.ConnectionError):
+                print("p"+str(prid) + ": Entering sleep")
+                time.sleep(60)
+                print("p"+str(prid) + ": Awake")
     f.close()
-    print(n_items, " Retrieved")
+    print("p" + str(prid) + ": ", n_items, " Retrieved")
     return n_items
+
 
 def get_last_page(url):
     req = requests.get(url)
@@ -82,7 +96,7 @@ with open("top-"+file_name, "w") as f:
 
     f.write("\t".join(csv_keys) + "\n")
 
-    n_top = crawl_and_save(top_pages_urls, get_top_announcements, f)
+    n_top = crawl_and_save(1, top_pages_urls, get_top_announcements, f)
 
     print(top_last_page, "pages", n_top, "announcements in top announcements")
 
@@ -96,14 +110,14 @@ def split_in(k, l):
     rem = len(l) % k
     list_len = len(l) // k
     if (rem != 0): list_len += 1
-    return [l[i * list_len : (i+1) * list_len] for i in range(k)]
+    return [l[i * list_len : (i + 1) * list_len] for i in range(k)]
 
 urls_partitions = split_in(args.n_proc, reg_pages_urls)
 
 ps = []
 for (i, par) in enumerate(urls_partitions):
     f = open(str(i) + "-" + file_name, "w")
-    p = Process(target = crawl_and_save, args =(par, get_announcements, f))
+    p = Process(target = crawl_and_save, args =(i + 1, par, get_announcements, f))
     p.start()
     ps.append((p, f))
 
