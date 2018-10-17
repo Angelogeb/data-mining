@@ -4,8 +4,10 @@ import argparse
 from lxml import html
 import requests
 import datetime 
-from multiprocessing import Process
+from threading import Thread
 import time
+import fileinput
+import os
 
 
 parser = argparse.ArgumentParser(description='Scrape kijiji.it Informatica/Grafica/Web category')
@@ -16,12 +18,13 @@ args = parser.parse_args()
 
 csv_keys = ["title", "href", "city", "timestamp", "description"]
 if args.full_desc:
+    csv_keys.remove("description")
     csv_keys.append("full_description")
 
 now = str(datetime.datetime.now().isoformat())
-now = now[:now.rfind(":")]
+now = now[:now.rfind(":")] + "-"
 now += ("-full_desc" if args.full_desc else "")
-file_name = now + "-announcements.tsv"
+file_name = "-announcements.tsv"
 
 top_url = "https://www.kijiji.it/offerte-di-lavoro/offerta/informatica-e-web/?top-ads="
 
@@ -57,7 +60,7 @@ def get_top_announcements(page):
 
 def ann_to_csv(ann):
     res = []
-    for k in ann:
+    for k in csv_keys:
         res.append(ann[k])
     return "\t".join(res) + "\n"
 
@@ -87,39 +90,50 @@ def get_last_page(url):
     last_page = page.find_class("last-page")
     return int(last_page[0].text_content()) if last_page != [] else 1
 
-
-top_last_page = get_last_page(top_url + str(1))
-top_pages_urls = [top_url + str(i) for i in range(1, top_last_page + 1)]
-
-
-with open("top-"+file_name, "w") as f:
-
-    f.write("\t".join(csv_keys) + "\n")
-
-    n_top = crawl_and_save(1, top_pages_urls, get_top_announcements, f)
-
-    print(top_last_page, "pages", n_top, "announcements in top announcements")
-
-
-reg_last_page = get_last_page(reg_url + str(1))
-reg_pages_urls = [reg_url + str(i) for i in range(1, reg_last_page + 1)]
-
-print("reg_last_page =", reg_last_page)
-
 def split_in(k, l):
     rem = len(l) % k
     list_len = len(l) // k
     if (rem != 0): list_len += 1
     return [l[i * list_len : (i + 1) * list_len] for i in range(k)]
 
-urls_partitions = split_in(args.n_proc, reg_pages_urls)
+if __name__ == '__main__':
+    top_last_page = get_last_page(top_url + str(1))
+    top_pages_urls = [top_url + str(i) for i in range(1, top_last_page + 1)]
 
-ps = []
-for (i, par) in enumerate(urls_partitions):
-    f = open(str(i) + "-" + file_name, "w")
-    p = Process(target = crawl_and_save, args =(i + 1, par, get_announcements, f))
-    p.start()
-    ps.append((p, f))
 
-for (p, f) in ps:
-    p.join()
+    with open("top"+file_name, "w") as f:
+
+        f.write("\t".join(csv_keys) + "\n")
+
+        n_top = crawl_and_save(1, top_pages_urls, get_top_announcements, f)
+
+        print(top_last_page, "pages", n_top, "announcements in top announcements")
+
+
+    reg_last_page = get_last_page(reg_url + str(1))
+    reg_pages_urls = [reg_url + str(i) for i in range(1, reg_last_page + 1)]
+
+    print(reg_last_page, "pages of regular announcements")
+
+    urls_partitions = split_in(args.n_proc, reg_pages_urls)
+
+    ps = []
+    for (i, par) in enumerate(urls_partitions):
+        f = open(str(i) + file_name, "w")
+        p = Thread(target = crawl_and_save, args =(i + 1, par, get_announcements, f))
+        p.start()
+        ps.append((p, f))
+
+    for (p, f) in ps:
+        p.join()
+
+    files = [f.name for (p, f) in ps]
+    files = ["top" + file_name] + files
+    
+    with open(now + "announcements.tsv", "w") as out:
+        lines = fileinput.input(files)
+        for line in lines:
+            out.write(line)
+    
+    for file in files:
+        os.remove(file)
