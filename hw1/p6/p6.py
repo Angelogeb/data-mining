@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 import argparse
 from lxml import html
@@ -76,11 +76,8 @@ def crawl_and_save(prid, urls, get_content, f):
                 n_items += len(content)
                 bad_req = False
             except (Exception, requests.exceptions.ConnectionError):
-                print("p"+str(prid) + ": Entering sleep")
                 time.sleep(60)
-                print("p"+str(prid) + ": Awake")
     f.close()
-    print("p" + str(prid) + ": ", n_items, " Retrieved")
     return n_items
 
 
