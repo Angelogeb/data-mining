@@ -7,6 +7,8 @@ try:
 except ImportError:
     import pymmh3 as mmh3
 
+from collections import namedtuple
+
 def murmurHash(seed):
     def resFun(s):
         return mmh3.hash128(s, seed)
@@ -83,11 +85,44 @@ class LocalitySensitiveHashing:
 
         return res
 
+SimilarPair = namedtuple('SimilarPair', ['idx1', 'idx2', 'score'])
+
+class JaccardSimilarity:
+    def __init__(self, threshold = 0.8):
+        self.threshold = threshold
+
+    def similar_pairs(self, shingled_docs):
+        """Given a list of docs where each doc is a list of shingles
+        produced by `ShingleVectorizer:transform` or 
+        `ShingleVectorizer:transformHashed` returns the pairs of indices
+        of the docs having similarity higher then the `threshold`.
+        The similarity is the Jaccard coefficient between the
+        
+        Arguments:
+            shingled_docs {list(set())}
+        
+        Returns:
+            SimilarPair -- SimilarPair(idx1, idx2, score) namedtuple
+        """
+
+        res = set()
+        for i in range(len(shingled_docs)):
+            for j in range(i + 1, len(shingled_docs)):
+                similarity = len(shingled_docs[i] & shingled_docs[j])\
+                             / len(shingled_docs[i] | shingled_docs[j])
+                if similarity >= self.threshold:
+                    res.add(SimilarPair(i, j, similarity))
+        return res
+
 if __name__ == '__main__':
     docs = ["today there is a strike", "today there is a strike for real"]
     vec = ShinglesVectorizer(k = 2)
     h = MinwiseHasher(rb=10)
+    l = LocalitySensitiveHashing(r = 5)
+    j = JaccardSimilarity(threshold = 0)
+
     hashedShingledDocs = vec.transformHashed(docs)
     minHashedDocs = h.transform(hashedShingledDocs)
-    l = LocalitySensitiveHashing(r = 5)
+
     print(l.transform(minHashedDocs))
+    print(j.similar_pairs(vec.transform(docs)))
