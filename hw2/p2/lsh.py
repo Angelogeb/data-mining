@@ -79,7 +79,7 @@ class LocalitySensitiveHashing:
                                  for i in range(self.r*b)
                                  if signatures[id1][i] == signatures[id2][i]])
 
-                if  same_sigs / self.r*b > similarity_threshold:
+                if  same_sigs / (self.r * b) > similarity_threshold:
                     true_similar.add( (id1, id2) )
             return true_similar
 
