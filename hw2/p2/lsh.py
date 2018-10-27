@@ -46,6 +46,8 @@ class MinwiseHasher:
             res.append(sig)
         return res
 
+SimilarPair = namedtuple('SimilarPair', ['idx1', 'idx2'])
+
 class LocalitySensitiveHashing:
     def __init__(self, r = 10):
         self.r = r
@@ -78,20 +80,18 @@ class LocalitySensitiveHashing:
                 same_sigs = sum([1
                                  for i in range(self.r*b)
                                  if signatures[id1][i] == signatures[id2][i]])
-
-                if  same_sigs / self.r*b > similarity_threshold:
-                    true_similar.add( (id1, id2) )
+                score = same_sigs / (self.r * b)
+                if  score > similarity_threshold:
+                    true_similar.add( SimilarPair(id1, id2) )
             return true_similar
 
         return res
-
-SimilarPair = namedtuple('SimilarPair', ['idx1', 'idx2', 'score'])
 
 class JaccardSimilarity:
     def __init__(self, threshold = 0.8):
         self.threshold = threshold
 
-    def similar_pairs(self, shingled_docs):
+    def similarPairs(self, shingled_docs):
         """Given a list of docs where each doc is a list of shingles
         produced by `ShingleVectorizer:transform` or 
         `ShingleVectorizer:transformHashed` returns the pairs of indices
@@ -111,18 +111,30 @@ class JaccardSimilarity:
                 similarity = len(shingled_docs[i] & shingled_docs[j])\
                              / len(shingled_docs[i] | shingled_docs[j])
                 if similarity >= self.threshold:
-                    res.add(SimilarPair(i, j, similarity))
+                    res.add(SimilarPair(i, j))
         return res
 
 if __name__ == '__main__':
-    docs = ["today there is a strike", "today there is a strike for real"]
-    vec = ShinglesVectorizer(k = 2)
-    h = MinwiseHasher(rb=10)
-    l = LocalitySensitiveHashing(r = 5)
-    j = JaccardSimilarity(threshold = 0)
+    docs = []
+    with open('preprocessed.tsv') as f:
+        lines = f.readlines()
+        docs = [ line.strip().split('\t')[1] for line in lines ]
+    # docs = ["today there is a strike", "today there is a strike for real"]
+    vec = ShinglesVectorizer(k = 10)
+    j = JaccardSimilarity(threshold = 0.8)
 
     hashedShingledDocs = vec.transformHashed(docs)
-    minHashedDocs = h.transform(hashedShingledDocs)
+    resJac = j.similarPairs(hashedShingledDocs)
 
-    print(l.transform(minHashedDocs))
-    print(j.similar_pairs(vec.transform(docs)))
+    print("jac", len(resJac))
+
+    for r in range(5, 50):
+        for b in range(5, 50):
+            l = LocalitySensitiveHashing(r = r)
+            h = MinwiseHasher(rb=r * b)
+            minHashedDocs = h.transform(hashedShingledDocs)
+            resLSH = l.transform(minHashedDocs, similarity_threshold = 0.8)
+            print("r:", r, "- b:", b)
+            print("lsh", len(resLSH))
+            print("recall", len(resJac & resLSH) / len(resJac))
+            print("precision", len(resJac & resLSH) / len(resLSH))
