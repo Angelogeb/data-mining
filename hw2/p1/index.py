@@ -20,48 +20,66 @@ def preprocess_docs(src_file,
     fout = open(dst_file, 'w')
 
     header = fin.readline()
-    fout.write(header)
+
     attrs = header.strip().split('\t')
 
     for line in fin:
         attr_values = line.strip().split('\t')
-        attr_values = [remove_special_chars(v)
-                        if attrs[i] in clean_attrs else v
-                        for (i, v) in enumerate(attr_values)]
+        res = []
+        for (i, v) in enumerate(attr_values):
+            if attrs[i] in clean_attrs:
+                s = remove_special_chars(v)
+                s = " ".join(s.split())
+                res.append(s)
 
-        fout.write('\t'.join(attr_values) + '\n')
+        fout.write('\t'.join(res) + '\n')
 
     fin.close()
     fout.close()
+    return [ attr for attr in attrs if attr in clean_attrs ]
 
-def doc_frequency(src_file):
+def doc_frequency(src_file, attrs):
+    """
+       file:
+       <tokens of attrs[0]> \\t <tokens of attrs[1]> ..
+
+       result:
+       { 
+         "term1": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]],
+         "term2": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]]
+       }
+    
+    Arguments:
+        src_file {[type]} -- [description]
+        attrs {[type]} -- [description]
+    
+    Returns:
+        [type] -- [description]
+    """
+
     fin = open(src_file)
 
-    header = fin.readline()
-    attrs = header.strip().split('\t')
+    attr_i = { attr: i for (i, attr) in enumerate(attrs) }
 
-    attr_i = { attr: i for (i, attr) in enumerate(attrs)}
-
-    df = Counter()
-
+    df_term = {}
     n_docs = 0
 
     for line in fin:
         n_docs += 1
-        attr_values = line.strip().split('\t')
-        tokens = set(attr_values[attr_i['description']].split())
-        tokens |= set(attr_values[attr_i['title']].split())
-        tokens |= set(attr_values[attr_i['city']].split())
-        df.update(tokens)
-    
+        fields = line.strip().split('\t')
+        for attr in attrs:
+            terms = set(fields[attr_i[attr]].split())
+            for t in terms:
+                df_term[t] = df_term.get(t, [0] * len(attrs))
+                df_term[t][attr_i[attr]] += 1
+
     fin.close()
 
-    return (n_docs, df)
+    return (n_docs, df_term)
 
 
-def build_index(src_file, dst_file, readable = False):
+def build_index(src_file, dst_file, attrs, readable = False):
     fin = open(src_file)
-    header = fin.readline()
 
     mode = 'w' if readable else 'wb'
     fname = dst_file
@@ -69,26 +87,27 @@ def build_index(src_file, dst_file, readable = False):
 
     fout = open(fname, mode)
 
-    attrs = header.strip().split('\t')
     attr_i = { attr: i for (i, attr) in enumerate(attrs)}
 
     index = {}
 
-    (n_docs, df) = doc_frequency(src_file)
+    (n_docs, df) = doc_frequency(src_file, attrs)
 
     for (docId, doc) in enumerate(fin, start = 1):
         attr_values = doc.strip().split('\t')
-        tokens = attr_values[attr_i['description']].split()
-        tokens += (attr_values[attr_i['title']].split()) # weights
-        tokens += (attr_values[attr_i['city']].split())  #
+
+        tokens = []
+        for attr in attrs:
+            tokens += attr_values[attr_i[attr]].split()
 
         tf = Counter(tokens)
         num = {} # given a term: tf * idf^2
         doc_2norm = 0
         for term in tf:
-            num[term] = tf[term] * log10(n_docs/df[term])
+            idf = log10(n_docs/sum(df[term]))
+            num[term] = tf[term] * idf
             doc_2norm += num[term] ** 2
-            num[term] *= log10(n_docs/df[term])
+            num[term] *= idf
 
         for term in tf:
             partialScore = num[term] / sqrt(doc_2norm) 
@@ -147,9 +166,9 @@ def process_query(q, index, k):
 if __name__ == '__main__':
     doc = """Linux System Administrator:  Requisiti ricercati: - Esperienza nel ruolo di Sistemista di almeno 2-3 anni; - Competenze tecniche Sistemi operativi Linux; - Conoscenza di base di integrazione di sistemi informatici; - Conoscenza di linguaggi di scripting, in particolare shell.  Costituiscono titolo preferenziale: - Conoscenza dello stack ELK e/o di altre soluzioni di log management; - Conoscenza di soluzioni di network e data security.  Attività proposta:  La risorsa verrà inserita in un team che gestisce le seguenti attività: - Amministrazione di sistemi Linux; - Troubleshooting sui sistemi Linux; - System Maintenance su hardware e software; - Analisi e patching dei sistemi Linux; - Tuning per le performance e assicurare l'alta affidabilità dell'infrastruttura; - Implementazione ed integrazione soluzioni di log management.  L'opportunità prevede un inserimento con contratto a tempo indeterminato
     """
-    preprocess_docs('file.tsv', 'clean_file.tsv')
-    index = build_index('clean_file.tsv', 'inverted_index', True)
-    res = process_query(doc, index, 3)
+    attrs = preprocess_docs('file.tsv', 'clean_file.tsv')
+    index = build_index('clean_file.tsv', 'inverted_index', attrs, True)
+    res = process_query(doc, index, 10)
     for (score, docId) in res:
         print("# " + str(docId))
         print("score: " + str(score))
