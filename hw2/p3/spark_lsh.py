@@ -65,4 +65,17 @@ similar = lsh.groupByKey()\
                 list(combinations(sorted(list(t[1])), 2)))\
              .distinct()
 
-print("LSH similar items", similar.count())
+def jaccard_similarity(docs):
+    id1 = docs[0][0] if docs[0][0] < docs[1][0] else docs[1][0]
+    id2 = docs[0][0] + docs[1][0] - id1
+    return (id1, id2, len(docs[0][1] & docs[1][1]) / len(docs[0][1] | docs[1][1]))
+
+
+cartProd = shingles\
+            .cartesian(shingles)\
+            .map(jaccard_similarity)
+
+
+print(cartProd.take(10))
+
+# print("LSH similar items", similar.count())
