@@ -5,7 +5,7 @@ import itertools
 try:
     import mmh3 as mmh3
 except ImportError:
-    import pymmh3 as mmh3
+    import util.pymmh3 as mmh3
 
 from collections import namedtuple
 
