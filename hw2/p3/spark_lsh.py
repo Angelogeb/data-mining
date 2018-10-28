@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import __init__
 
 try:
     import mmh3 as mmh3
