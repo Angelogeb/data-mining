@@ -78,4 +78,15 @@ similarDocs = docsSimilarities.filter(lambda e: e[2] > 0.8)
 
 #print(similarDocs.count())
 
+def similarity_above_threshold(doc):
+    v1 = doc[1][0][1]
+    v2 = doc[1][1]
+    return sum([1 for i in range(len(v1)) if v1[i] == v2[i]])/len(v1) >= 0.8
+
+similar = similar.join(minWiseHash)\
+            .map(lambda e: (e[1][0],(e[0], e[1][1]) ))\
+            .join(minWiseHash)\
+            .filter(similarity_above_threshold)
+
+
 print("LSH similar items", similar.count())
