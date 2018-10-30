@@ -448,4 +448,4 @@ if __name__ == "__main__":
     opts = parser.parse_args()
     
     for str_to_hash in opts.strings:
-        sys.stdout.write( '"%s" = 0x%08X\n' % ( str_to_hash, hash( str_to_hash ) ) )
+        _sys.stdout.write( '"%s" = 0x%08X\n' % ( str_to_hash, hash( str_to_hash ) ) )
