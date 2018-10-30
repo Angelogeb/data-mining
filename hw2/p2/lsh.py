@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import itertools
+import pickle
+import os
+import argparse
 
 try:
     import mmh3 as mmh3
@@ -8,6 +11,45 @@ except ImportError:
     import pymmh3 as mmh3
 
 from collections import namedtuple
+
+parser = argparse.ArgumentParser(prog='LSH near duplicate detection', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument('file')
+
+parser.add_argument('-k',
+                    type = int,
+                    default = 10,
+                    help = 'Sets the size of the k-grams')
+
+parser.add_argument('-r',
+                    type = int,
+                    default = 10,
+                    help = 'Length of one band')
+
+parser.add_argument('-b',
+                    type = int,
+                    default = 9,
+                    help = 'Number of bands')
+
+parser.add_argument('-t',
+                    type = float,
+                    default = 0.8,
+                    help = 'Jaccard similarity threshold')
+
+parser.add_argument('-i',
+                    type = int,
+                    default = 2,
+                    help = 'Index of the document column in the tsv')
+
+parser.add_argument('--skip-jaccard',
+                    '-s',
+                    action = 'store_true',
+                    help = 'Skips computing the jaccard similarity between\
+                            documents')
+
+parser.add_argument('-f',
+                    action = 'store_true',
+                    help = 'Perform postfiltering after LSH')
 
 def murmurHash(seed):
     def resFun(s):
@@ -81,7 +123,7 @@ class LocalitySensitiveHashing:
                                  for i in range(self.r*b)
                                  if signatures[id1][i] == signatures[id2][i]])
                 score = same_sigs / (self.r * b)
-                if  score > similarity_threshold:
+                if  score >= similarity_threshold:
                     true_similar.add( SimilarPair(id1, id2, score) )
             return true_similar
 
@@ -114,30 +156,51 @@ class JaccardSimilarity:
                     res.add(SimilarPair(i, j, similarity))
         return res
 
-DESCRIPTION_INDEX = 2
 
 if __name__ == '__main__':
+    args = parser.parse_args()
+
+    R = args.r
+    B = args.b
+    K = args.k
+    DESCRIPTION_INDEX = args.i
+    JACC_THRESHOLD = args.t
+
+    cache = args.file.split('/')[-1] + '_jacc_similarities_K-' +\
+            str(K) + '_THRESH-' + str(JACC_THRESHOLD) + '.pickle'
+
     docs = []
-    with open('../data/clean_file.tsv') as f:
+    with open(args.file) as f:
         lines = f.readlines()
         docs = [ line.strip().split('\t')[DESCRIPTION_INDEX] for line in lines ]
-    # docs = ["today there is a strike", "today there is a strike for real"]
-    vec = ShinglesVectorizer(k = 10)
-    j = JaccardSimilarity(threshold = 0.8)
+
+    vec = ShinglesVectorizer(k = K)
 
     hashedShingledDocs = vec.transformHashed(docs)
-    resJac = j.similarPairs(hashedShingledDocs)
 
-    print("jac", len(resJac))
-
-    r = 5
-    b = 2
-
-    l = LocalitySensitiveHashing(r = r)
-    h = MinwiseHasher(rb=r * b)
+    l = LocalitySensitiveHashing(r = R)
+    h = MinwiseHasher(rb=R * B)
     minHashedDocs = h.transform(hashedShingledDocs)
-    resLSH = l.transform(minHashedDocs, similarity_threshold = 0.8)
-    print("r:", r, "- b:", b)
-    print("lsh", len(resLSH))
-    print("recall", len(resJac & resLSH) / len(resJac))
-    print("precision", len(resJac & resLSH) / len(resLSH))
+    resLSH = l.transform(minHashedDocs, similarity_threshold = JACC_THRESHOLD if args.f else 0)
+
+    print('LSH: {} duplicates found'.format(len(resLSH)))
+
+    resJAC = None
+    if not os.path.isfile(cache) and not args.skip_jaccard:
+        print('Computing Jaccard Similarity ...')
+        j = JaccardSimilarity(threshold = JACC_THRESHOLD)
+        resJAC = j.similarPairs(hashedShingledDocs)
+        with open(cache, 'wb') as f:
+            print('Caching Jaccard Similarity to: ', cache)
+            pickle.dump(resJAC, f)
+    elif os.path.isfile(cache):
+        print('Jaccard Similarity cache found, loading...')
+        with open(cache, 'rb') as f:
+            resJAC = pickle.load(f)
+
+    if resJAC:
+        resLSHwithoutScore = { (e[0], e[1]) for e in resLSH }
+        resJACwithoutScore = { (e[0], e[1]) for e in resJAC }
+        print('JAC: {} duplicates found'.format(len(resJACwithoutScore)))
+        print("recall", len(resJACwithoutScore & resLSHwithoutScore) / len(resJACwithoutScore))
+        print("precision", len(resJACwithoutScore & resLSHwithoutScore) / len(resLSH))
