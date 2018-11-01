@@ -134,7 +134,7 @@ def min_heap(heap):
 
 def process_query(q, index, k):
     q_tf = Counter(remove_special_chars(q).split())
-    heap = [HeapEntry(0,0)]
+    heap = []
     pointers = {t: 0 for t in q_tf if t in index }
 
     current_docIds = [index[t][pointers[t]].docId for t in pointers]
@@ -164,8 +164,7 @@ def process_query(q, index, k):
 
 
 if __name__ == '__main__':
-    doc = """Linux System Administrator:  Requisiti ricercati: - Esperienza nel ruolo di Sistemista di almeno 2-3 anni; - Competenze tecniche Sistemi operativi Linux; - Conoscenza di base di integrazione di sistemi informatici; - Conoscenza di linguaggi di scripting, in particolare shell.  Costituiscono titolo preferenziale: - Conoscenza dello stack ELK e/o di altre soluzioni di log management; - Conoscenza di soluzioni di network e data security.  Attività proposta:  La risorsa verrà inserita in un team che gestisce le seguenti attività: - Amministrazione di sistemi Linux; - Troubleshooting sui sistemi Linux; - System Maintenance su hardware e software; - Analisi e patching dei sistemi Linux; - Tuning per le performance e assicurare l'alta affidabilità dell'infrastruttura; - Implementazione ed integrazione soluzioni di log management.  L'opportunità prevede un inserimento con contratto a tempo indeterminato
-    """
+    doc = 'Linux System Administrator'
     attrs = preprocess_docs('file.tsv', 'clean_file.tsv')
     index = build_index('clean_file.tsv', 'inverted_index', attrs, True)
     res = process_query(doc, index, 10)
