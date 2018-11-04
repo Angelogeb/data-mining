@@ -4,6 +4,7 @@ import itertools
 import pickle
 import os
 import argparse
+import time
 
 try:
     import mmh3 as mmh3
@@ -62,16 +63,16 @@ class ShinglesVectorizer:
     
     def transform(self, documents):
         if type(documents) != list: documents = [documents]
-        assert (len(documents[0]) - self.k + 1 > 0), "k should be less than the\
-                                                      document length"
+        assert (len(documents[0]) - self.k + 1 > 0), "k should be less than \
+                                                      the document length"
         return [set([d[i:i+self.k] for i in range(len(d) - self.k + 1)])
                 for d in documents]
     
     def transformHashed(self, documents, hash_fun = mmh3.hash128):
         if type(documents) != list: documents = [documents]
 
-        assert (len(documents[0]) - self.k + 1 > 0), "k should be less than the\
-                                                      document length"
+        assert (len(documents[0]) - self.k + 1 > 0), "k should be less than \
+                                                      the document length"
         return [set([ hash_fun(d[i:i+self.k])
                   for i in range(len(d) - self.k + 1)])
                   for d in documents ]
@@ -172,24 +173,40 @@ if __name__ == '__main__':
     docs = []
     with open(args.file) as f:
         lines = f.readlines()
-        docs = [ line.strip().split('\t')[DESCRIPTION_INDEX] for line in lines ]
+        docs = [line.strip().split('\t')[DESCRIPTION_INDEX]
+                for line in lines]
 
     vec = ShinglesVectorizer(k = K)
 
+    shingledDocs = vec.transform(docs)
     hashedShingledDocs = vec.transformHashed(docs)
+
+    lsh_start = time.time()
 
     l = LocalitySensitiveHashing(r = R)
     h = MinwiseHasher(rb=R * B)
     minHashedDocs = h.transform(hashedShingledDocs)
-    resLSH = l.transform(minHashedDocs, similarity_threshold = JACC_THRESHOLD if args.f else 0)
+    resLSH = l.transform(
+        minHashedDocs,
+        similarity_threshold = JACC_THRESHOLD if args.f else 0
+    )
 
+    print('LSH: {} s passed'.format(time.time() - lsh_start))
     print('LSH: {} duplicates found'.format(len(resLSH)))
+
+    jac_start = 0
+    jac_end = jac_start
 
     resJAC = None
     if not os.path.isfile(cache) and not args.skip_jaccard:
-        print('Computing Jaccard Similarity ...')
+        print('Computing Jaccard Similarity... (This might take a while)')
         j = JaccardSimilarity(threshold = JACC_THRESHOLD)
-        resJAC = j.similarPairs(hashedShingledDocs)
+
+        jac_start = time.time()
+
+        resJAC = j.similarPairs(shingledDocs)
+
+        jac_end = time.time()
         with open(cache, 'wb') as f:
             print('Caching Jaccard Similarity to: ', cache)
             pickle.dump(resJAC, f)
@@ -201,6 +218,14 @@ if __name__ == '__main__':
     if resJAC:
         resLSHwithoutScore = { (e[0], e[1]) for e in resLSH }
         resJACwithoutScore = { (e[0], e[1]) for e in resJAC }
+
+
+        print('JAC: {} s passed'.format(jac_end - jac_start))
         print('JAC: {} duplicates found'.format(len(resJACwithoutScore)))
-        print("recall", len(resJACwithoutScore & resLSHwithoutScore) / len(resJACwithoutScore))
-        print("precision", len(resJACwithoutScore & resLSHwithoutScore) / len(resLSH))
+
+        intersect = resJACwithoutScore & resLSHwithoutScore
+        print("intersection", len(intersect))
+        print("recall", len(intersect) 
+                        / len(resJACwithoutScore))
+        print("precision", len(intersect)
+                            / len(resLSH))
