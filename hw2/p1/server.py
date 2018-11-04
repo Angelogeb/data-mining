@@ -12,14 +12,18 @@ from index import build_index, doc_frequency, process_query, preprocess_docs
 app = Flask(
     __name__,
     static_url_path='',
-    static_folder='dist'
+    static_folder='frontend/dist'
 )
 app.config['ENV'] = 'development'
 
 INDEX_URL = "http://localhost:5000/index.html"
 
-attrs = preprocess_docs('file.tsv', 'clean_file.tsv')
-index = build_index('clean_file.tsv', 'inverted_index', attrs, True)
+RAW_TSV_FILE = '../data/retrieved_announcements.tsv'
+PREPROCESSED_FILE = '../data/preprocessed_announcements.tsv'
+INDEX_FILE = 'inverted_index'
+
+attrs = preprocess_docs(RAW_TSV_FILE, PREPROCESSED_FILE)
+index = build_index(PREPROCESSED_FILE, INDEX_FILE, attrs, False)
 
 header = ['title', 'href', 'city', 'timestamp', 'description']
 
@@ -28,12 +32,12 @@ def search():
     content = request.get_json(silent = True)
     query = content['query']
     start = time.time()
-    docs = process_query(query, index, 10)
+    docs = process_query(query, index, 100)
     
     result = {}
     result['documents'] = []
     for score, docId in docs:
-        line = linecache.getline('file.tsv', docId + 1).strip().split('\t')
+        line = linecache.getline(RAW_TSV_FILE, docId + 1).strip().split('\t')
         curr_doc = {}
         for fid, field in enumerate(header):
             curr_doc[field] = line[fid]

@@ -41,20 +41,13 @@ def preprocess_docs(src_file,
 def doc_frequency(src_file, attrs):
     """
        file:
-       <tokens of attrs[0]> \\t <tokens of attrs[1]> ..
+       <tokens of attrs[0]> \t <tokens of attrs[1]> ..
 
        result:
        { 
          "term1": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]],
          "term2": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]]
        }
-    
-    Arguments:
-        src_file {[type]} -- [description]
-        attrs {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
     """
 
     fin = open(src_file)
@@ -133,6 +126,17 @@ def min_heap(heap):
     return heap[0]
 
 def process_query(q, index, k):
+    """Term at a time query processing
+    
+    Arguments:
+        q {string} -- Query
+        index {dict} -- Index dictionary containing posting lists
+        k {int} -- Maximum number of results to be retrieved
+    
+    Returns:
+        list -- List of tuples (score, docId) sorted by score
+    """
+
     q_tf = Counter(remove_special_chars(q).split())
     heap = []
     pointers = {t: 0 for t in q_tf if t in index }
@@ -155,20 +159,24 @@ def process_query(q, index, k):
         elif score > min_heap(heap).score:
             heapq.heappushpop(heap, HeapEntry(score, min_docId))
 
-        current_docIds = [index[t][pointers[t]].docId for t in pointers if pointers[t] < len(index[t])]
+        current_docIds = [index[t][pointers[t]].docId
+                          for t in pointers
+                          if pointers[t] < len(index[t])]
         min_docId = min(current_docIds) if current_docIds else -1
 
     return sorted(heap, reverse = True)
 
-        
 
+RAW_TSV_FILE = '../data/retrieved_announcements.tsv'
+PREPROCESSED_FILE = '../data/preprocessed_announcements.tsv'
+INDEX_FILE = 'inverted_index'
 
 if __name__ == '__main__':
     doc = 'Linux System Administrator'
-    attrs = preprocess_docs('file.tsv', 'clean_file.tsv')
-    index = build_index('clean_file.tsv', 'inverted_index', attrs, True)
+    attrs = preprocess_docs(RAW_TSV_FILE, PREPROCESSED_FILE)
+    index = build_index(PREPROCESSED_FILE, INDEX_FILE, attrs)
     res = process_query(doc, index, 10)
     for (score, docId) in res:
         print("# " + str(docId))
         print("score: " + str(score))
-        print(linecache.getline("file.tsv", docId + 1))
+        print(linecache.getline(RAW_TSV_FILE, docId + 1))
