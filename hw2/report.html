@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Anxhelo Xhebraj" />
+  <title>Data Mining: Homework 2</title>
+  <style type="text/css">
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <link rel="stylesheet" href="pandoc.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-AMS_CHTML-full" type="text/javascript"></script>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">Data Mining: Homework 2</h1>
+<p class="author">Anxhelo Xhebraj</p>
+<p class="date">{23 Oct .. 11 Nov} 2018</p>
+</header>
+<nav id="TOC">
+<ul>
+<li><a href="#problem-1">Problem 1</a><ul>
+<li><a href="#preprocessing">Preprocessing</a></li>
+<li><a href="#inverted-index-construction">Inverted Index Construction</a></li>
+<li><a href="#query-processing">Query Processing</a></li>
+<li><a href="#conclusions-and-instructions-to-run">Conclusions and instructions to run</a></li>
+</ul></li>
+<li><a href="#problem-2">Problem 2</a><ul>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#results-and-parameters">Results and Parameters</a></li>
+</ul></li>
+<li><a href="#problem-3">Problem 3</a><ul>
+<li><a href="#results">Results</a></li>
+</ul></li>
+</ul>
+</nav>
+<h2 id="problem-1">Problem 1</h2>
+<h3 id="preprocessing">Preprocessing</h3>
+<p>The input file is the one of the previous homework i.e. a <code>tsv</code> having the following header</p>
+<pre><code>title   href    city    timestamp   description</code></pre>
+<p>The corpus is preprocessed in the following steps:</p>
+<ol type="1">
+<li>only the <code>title</code>, <code>city</code> and <code>description</code> of the announcements are kept</li>
+<li>all symbols except alphanumerical characters are replaced by space (“U.S.A” becomes “U S A”)</li>
+<li>a token is a sequence of non-white characters bounded by whitespace</li>
+<li>all tokens are transformed to lowercase</li>
+<li>all tokens of length less than 2 are removed</li>
+</ol>
+<p>The last step is performed to roughly remove stopwords (this comes at the cost of not being able to process 2 characters queries such as “GO” requiring the user to further reformulate the query to “Golang”).</p>
+<p>The preprocessing is done through a scan over the file producing a second file with each line containing the terms of a document.</p>
+<h3 id="inverted-index-construction">Inverted Index Construction</h3>
+<p>The inverted index is constructed scanning over the file twice: first to compute the document frequency and the number of documents; then to build the postings lists.</p>
+<p>The index is used to promptly compute the similarity between a query <span class="math inline">\(q\)</span> and a document <span class="math inline">\(d\)</span> based on the <em>vector space model</em> and the <em>cosine similarity</em> measure.</p>
+<p>In this scenario a document <span class="math inline">\(d\)</span> (or a query) is represented as a vector where each component <span class="math inline">\(i\)</span> represents a score relative to a term <span class="math inline">\(t\)</span>.</p>
+<p><span class="math inline">\(d[i] = TF(t, d) \cdot IDF(t)\)</span> with <span class="math inline">\(IDF(t) = \log_{10}(N/N_t)\)</span></p>
+<p>Then given a query <span class="math inline">\(q\)</span>:</p>
+<p><span class="math inline">\(cosineSim(d,q) = \frac{q \cdot d}{ ||q||_2 ||d||_2} =  \frac{\sum_{t \in q \cap d} TF(t, q) \cdot IDF(t) \cdot TF(t, d) \cdot IDF(t)}{||q||_2 ||d||_2}\)</span></p>
+<p>When processing a query we would like to retrieve the <span class="math inline">\(k\)</span> documents having the largest cosine similarity to it. In order to make the response as fast as possible we should reduce the number of computations to be performed at query time. First we can observe that since the cosine similarity scores of all docs are divided by the 2-norm of <span class="math inline">\(q\)</span> which is always the same we can avoid performing such calculation. Second, a part of the formula above is independent from the query thus can be pre-computed and stored.</p>
+<p>From the observations above the postings list of a term <span class="math inline">\(t\)</span> in the inverted index is just a list of tuples (docId, partialScore) sorted by docId with</p>
+<p><span class="math inline">\(partialScore(t, d) = \frac{TF(t, d) \cdot IDF(t)^2}{||d||_2}\)</span></p>
+<p>where</p>
+<p><span class="math inline">\(||d||_2 = \sqrt{\sum_{t \in d} (TF(t, d) \cdot IDF(t))^2}\)</span></p>
+<h3 id="query-processing">Query Processing</h3>
+<p>The processing is done in a “doc-at-a-time” fashion. When a query is issued a set of pointers to the postings lists corresponding to the terms of it is created to iterate over them. If the query contains terms that do not appear in the index they are just ignored. From the pool of pointers we take the one pointing to the minimum docId and compute the score of such document then advance the pointers accordingly.</p>
+<h3 id="conclusions-and-instructions-to-run">Conclusions and instructions to run</h3>
+<p>The system is written in <code>python3</code> and presented through a web interface served by a Flask server. To launch it, go in the <code>p1/</code> folder and execute <code>server.py</code>. After some seconds a new tab will be opened in the web browser with the interface to the tool.</p>
+<p><img src="images/q1.png" alt="First" /> <img src="images/q2.png" /> <img src="images/q3.png" /></p>
+<p>The decisions made work well overall. Some examples of queries and results are shown above.</p>
+<p>In the first query a well known issue of cosine-similarity is shown: shorter documents get higher ranking since normalization penalizes longer documents. Indeed even if the first document contains only one of the query terms, still achieves a higher score than a longer document containing both terms.</p>
+<p>In the third example the query issued is the first document retrieved. As shown in this case the score achieved by the first document is way higher than the average cases given that the query is the document itself. Moreover also the processing time increases drastically.</p>
+<h2 id="problem-2">Problem 2</h2>
+<p>For this problem the <code>preprocessed_announcements.tsv</code> file produced by the preprocessing phase of the previous problem is used.</p>
+<p>All the classes follow the <code>sklearn</code> interface:</p>
+<ul>
+<li>A constructor accepting some parameters: <code>ClassConstructor(param1 = value1, ...)</code></li>
+<li>A <code>transform*(dataset)</code> method that given a list of elements each representing an item of the dataset, produces some result</li>
+</ul>
+<p>The pipeline is the following:</p>
+<ul>
+<li>The list of the descriptions (strings) forming the dataset passes through the <code>ShingleVectorizer</code> which produces for each description the set of its <em>10-shingles</em> (or <em>10-grams</em>) and their hashed value using the <em>MurmurHash128</em> hashing scheme</li>
+<li>The hashed shingles dataset is passed to the <code>MinwiseHasher</code> which produces a signature of length <span class="math inline">\(r \cdot b\)</span> of each set of hashed shingles using the hash functions with seed from <span class="math inline">\(1\)</span> to <span class="math inline">\(r \cdot b\)</span></li>
+<li>The signatures dataset is passed to the <code>LocalitySensitiveHashing</code> which returns the set of similar pairs. First it splits each signature in <span class="math inline">\(b\)</span> bands of size <span class="math inline">\(r\)</span>. Then it groups together the signatures having the same hash of the sub-signature in a given band. At the end it iterates over all groups producing pairs of similar documents. In doing so it is possible to specify a threshold at which the estimated Jaccard Similarity should at least be for two signatures of two documents to be considered similar. The estimation is computed as the ratio of equal entries in the signatures <span class="math inline">\(\widetilde{J}(s_1, s_2) = |\{ i: s_1[i] = s_2[i]\}| / (r \cdot b)\)</span>. Note that this phase (denoted as postfiltering later) is performed only when specified when launching the program with the <code>-f</code> flag.</li>
+</ul>
+<h3 id="usage">Usage</h3>
+<pre><code>$ ./lsh.py -h
+usage: LSH near duplicate detection [-h] [-k K] [-r R] [-b B] [-t T] [-i I]
+                                    [--skip-jaccard] [-f]
+                                    file
+
+positional arguments:
+  file
+
+optional arguments:
+  -h, --help          show this help message and exit
+  -k K                Sets the size of the k-grams (default: 10)
+  -r R                Length of one band (default: 10)
+  -b B                Number of bands (default: 9)
+  -t T                Jaccard similarity threshold (default: 0.8)
+  -i I                Index of the document column in the tsv (default: 2)
+  --skip-jaccard, -s  Skips computing the jaccard similarity between documents
+                      (default: False)
+  -f                  Perform postfiltering after LSH (default: False)</code></pre>
+<h3 id="results-and-parameters">Results and Parameters</h3>
+<p>From the scheme above and from the fact that <span class="math inline">\(Pr(s_i[k] = s_j[k]) = JacSim(d_i, d_j)\)</span> we know that given two documents with Jaccard similarity <span class="math inline">\(s\)</span> then the probability of them to end up in the same group in at least one band is <span class="math inline">\(1 - (1 - s^r)^b\)</span>.</p>
+<p>When wanting to find near duplicates we must make some tradeoffs over the time to perform such task, the accuracy, whether false positives are more tolerable than false negatives and others.</p>
+<p>In this setting we consider two documents similar if their Jaccard similarity is above <span class="math inline">\(t = 0.8\)</span>. We choose <span class="math inline">\(r \cdot b\)</span> to be around <span class="math inline">\(100\)</span>.</p>
+<p>The <a href="http://www.mmds.org/">Mining of Massive Datasets</a> book suggests to choose <span class="math inline">\(r\)</span> and <span class="math inline">\(b\)</span> such that <span class="math inline">\(t \approx (1/b)^{1/r}\)</span>. A pair satisfying that is <span class="math inline">\(r = 10, b = 9\)</span> producing the following curve.</p>
+<p><img src="images/mmdsfun.png" /></p>
+<p>As we can see from the curve and as supported by the empirical results these parameters produce a good amount of false positives since documents with similarity below <span class="math inline">\(0.8\)</span> still have a probability higher than <span class="math inline">\(1/2\)</span> to be considered as similar.</p>
+<p>If we apply postfiltering, most of the false positives will be removed resulting in good precision and recall at the expense of longer processing times due to the filtering (quadratic in the number of documents ending in the same group)</p>
+<pre><code>$ ./lsh.py ../data/preprocessed_announcements.tsv -f
+LSH: 251.59696078300476 s passed
+LSH: 1889 duplicates found
+Computing Jaccard Similarity... (This might take a while)
+Caching Jaccard Similarity to:  preprocessed_announcements.tsv_jacc_similarities_K-10_THRESH-0.8.pickle
+JAC: 887.0211551189423 s passed
+JAC: 1982 duplicates found
+intersection 1838
+recall 0.9273461150353178
+precision 0.973001588141874</code></pre>
+<p>Contrarily if we don’t apply it, precision is strongly affected.</p>
+<pre><code>$ ./lsh.py ../data/preprocessed_announcements.tsv
+LSH: 236.54036951065063 s passed
+LSH: 2181 duplicates found
+Jaccard Similarity cache found, loading...
+JAC: 0 s passed
+JAC: 1982 duplicates found
+intersection 1868
+recall 0.9424823410696267
+precision 0.8564878496102705</code></pre>
+<p>A different approach taken form the <a href="https://ekzhu.github.io/datasketch/index.html">Datasketch</a> library is to <a href="https://github.com/ekzhu/datasketch/blob/master/datasketch/lsh.py#L22-L51">find <span class="math inline">\(r\)</span> and <span class="math inline">\(b\)</span></a> such that the area below the curve on the left side of the threshold is equal to the area above the curve on the right side of the threshold. which can be interpreted as “the probability of the process to produce a false positive is equal to the one of producing a false negative”. The parameters obtained through this scheme are <span class="math inline">\(r = 12, b = 7\)</span></p>
+<p><img src="images/bothfun.png" /></p>
+<pre><code>$ ./lsh.py ../data/preprocessed_announcements.tsv -b 7 -r 12
+LSH: 216.9086480140686 s passed
+LSH: 1937 duplicates found
+Jaccard Similarity cache found, loading...
+JAC: 0 s passed
+JAC: 1982 duplicates found
+intersection 1777
+recall 0.8965691220988901
+precision 0.9173980382034074</code></pre>
+<p>As shown above these parameters achieve better precision than the ones above (both without postfiltering).</p>
+<p>Note that when choosing <span class="math inline">\(r = 10, b = 9\)</span> according to the formula the probability of the algorithm to produce a false positive is twice the probability of producing a false negative.</p>
+<h2 id="problem-3">Problem 3</h2>
+<p>The implementation follows the same pipeline described above using the “primitive” operations offered by the Apache Spark framework.</p>
+<p>As shown by the time to perform the operations, the framework fully parallelizes the LSH implementation achieving a <span class="math inline">\(4\times\)</span> speedup on a quad-core machine while poorly handling the Jaccard similarity implementation which uses the <em>cartesian</em> operation.</p>
+<h3 id="results">Results</h3>
+<pre><code>$ ./spark_lsh.py 
+2018-11-04 12:25:19 WARN  NativeCodeLoader:62 - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Setting default log level to &quot;WARN&quot;.
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+LSH: 70.75482106208801 s passed                                                 
+LSH: 1889 duplicates found
+JAC: 748.2767751216888 s passed                                                 
+JAC: 1982 duplicates found
+intersection 1838
+recall 0.9273461150353178
+precision 0.973001588141874</code></pre>
+</body>
+</html>
