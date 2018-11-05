@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import time
+
 try:
     import mmh3 as mmh3
 except ImportError:
@@ -25,7 +27,7 @@ def subs(e, i, r):
     """
     return e[ i * r: (i + 1) * r ]
 
-
+IN_FILE = '../data/preprocessed_announcements.tsv'
 SHINGLE_SIZE = 10
 DESCRIPTION_INDEX = 2
 R = 10
@@ -40,12 +42,12 @@ spark = (
 )
 
 document = (
-    spark.read.csv('../data/clean_file.tsv', sep = '\t')
+    spark.read.csv(IN_FILE, sep = '\t')
     # [field1, field2, ..., fieldN]
 )
 
 description = (
-    document.rdd\
+    document.rdd
         .zipWithIndex()
         # ([field1, field2, ..., fieldN] , line_num)
         .repartition(4)
@@ -121,19 +123,35 @@ similar = (
         .filter(similarity_above(0.8))
 )
 
-print('LSH: {} duplicates found'.format(similar.count()))
-exit()
+lsh_start = time.time()
+
+lshPairs = set(similar.keys().collect())
+
+print('LSH: {} s passed'.format(time.time() - lsh_start))
+print('LSH: {} duplicates found'.format(len(lshPairs)))
 
 def jaccard_similarity(docs):
-    return (docs[0][0], docs[1][0],
+    return ((docs[0][0], docs[1][0]),
             len(docs[0][1] & docs[1][1]) / len(docs[0][1] | docs[1][1]))
 
+docsSimilarities = (
+    shingles
+        .cartesian(shingles)
+        .filter(lambda e: e[0][0] < e[1][0])
+        .map(jaccard_similarity)
+)
 
-docsSimilarities = hashedShingles\
-            .cartesian(hashedShingles)\
-            .filter(lambda e: e[0][0] > e[1][0])\
-            .map(jaccard_similarity)\
+similarDocs = docsSimilarities.filter(lambda e: e[1] >= 0.8)
 
-similarDocs = docsSimilarities.filter(lambda e: e[2] > 0.8)
+jac_start = time.time()
 
-#print(similarDocs.count())
+jacPairs = set(similarDocs.keys().collect())
+
+print('JAC: {} s passed'.format(time.time() - jac_start))
+print('JAC: {} duplicates found'.format(len(jacPairs)))
+
+intersectionSize = len(jacPairs & lshPairs)
+
+print("intersection", intersectionSize)
+print("recall", intersectionSize / len(jacPairs))
+print("precision", intersectionSize / len(lshPairs))

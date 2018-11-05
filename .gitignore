@@ -1,6 +1,5 @@
-*.txt
-*.tsv
 *.pickle
 *.stdout
 __pycache__/
 .ipynb_checkpoints/
+dist/
