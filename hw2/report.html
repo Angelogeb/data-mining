@@ -71,10 +71,10 @@
 <p>The processing is done in a “doc-at-a-time” fashion. When a query is issued a set of pointers to the postings lists corresponding to the terms of it is created to iterate over them. If the query contains terms that do not appear in the index they are just ignored. From the pool of pointers we take the one pointing to the minimum docId and compute the score of such document then advance the pointers accordingly.</p>
 <h3 id="conclusions-and-instructions-to-run">Conclusions and instructions to run</h3>
 <p>The system is written in <code>python3</code> and presented through a web interface served by a Flask server. To launch it, go in the <code>p1/</code> folder and execute <code>server.py</code>. After some seconds a new tab will be opened in the web browser with the interface to the tool.</p>
-<p><img src="images/q1.png" alt="First" /> <img src="images/q2.png" /> <img src="images/q3.png" /></p>
+<p><img src="images/q1.png" alt="First" /> <img src="images/q2.png" /></p>
 <p>The decisions made work well overall. Some examples of queries and results are shown above.</p>
 <p>In the first query a well known issue of cosine-similarity is shown: shorter documents get higher ranking since normalization penalizes longer documents. Indeed even if the first document contains only one of the query terms, still achieves a higher score than a longer document containing both terms.</p>
-<p>In the third example the query issued is the first document retrieved. As shown in this case the score achieved by the first document is way higher than the average cases given that the query is the document itself. Moreover also the processing time increases drastically.</p>
+<p>In the second example the query issued is the first document retrieved. As shown in this case the score achieved by the first document is way higher than the average cases given that the query is the document itself. Moreover also the processing time increases drastically.</p>
 <h2 id="problem-2">Problem 2</h2>
 <p>For this problem the <code>preprocessed_announcements.tsv</code> file produced by the preprocessing phase of the previous problem is used.</p>
 <p>All the classes follow the <code>sklearn</code> interface:</p>

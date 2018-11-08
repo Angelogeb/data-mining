@@ -38,33 +38,18 @@ def preprocess_docs(src_file,
     fout.close()
     return [ attr for attr in attrs if attr in clean_attrs ]
 
-def doc_frequency(src_file, attrs):
-    """
-       file:
-       <tokens of attrs[0]> \t <tokens of attrs[1]> ..
-
-       result:
-       { 
-         "term1": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]],
-         "term2": [ df[attrs[0]], df[attrs[1]], ..., df[attrs[len(attrs)]]]
-       }
-    """
+def doc_frequency(src_file):
 
     fin = open(src_file)
 
-    attr_i = { attr: i for (i, attr) in enumerate(attrs) }
 
-    df_term = {}
+    df_term = Counter()
     n_docs = 0
 
     for line in fin:
         n_docs += 1
-        fields = line.strip().split('\t')
-        for attr in attrs:
-            terms = set(fields[attr_i[attr]].split())
-            for t in terms:
-                df_term[t] = df_term.get(t, [0] * len(attrs))
-                df_term[t][attr_i[attr]] += 1
+        terms = set(line.strip().split())
+        df_term.update(terms)
 
     fin.close()
 
@@ -84,7 +69,7 @@ def build_index(src_file, dst_file, attrs, readable = False):
 
     index = {}
 
-    (n_docs, df) = doc_frequency(src_file, attrs)
+    (n_docs, df) = doc_frequency(src_file)
 
     for (docId, doc) in enumerate(fin, start = 1):
         attr_values = doc.strip().split('\t')
@@ -97,7 +82,7 @@ def build_index(src_file, dst_file, attrs, readable = False):
         num = {} # given a term: tf * idf^2
         doc_2norm = 0
         for term in tf:
-            idf = log10(n_docs/sum(df[term]))
+            idf = log10(n_docs/df[term])
             num[term] = tf[term] * idf
             doc_2norm += num[term] ** 2
             num[term] *= idf
