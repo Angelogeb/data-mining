@@ -91,8 +91,8 @@ queries and results are shown above.
 In the first query a well known issue of cosine-similarity is shown:
 shorter documents get higher ranking since normalization penalizes longer
 documents. Indeed even if the first document
-contains only one of the query terms, still achieves a higher score than
-a longer document containing both terms.
+contains fewer occurrences of the query terms, still achieves a higher score
+than a longer document containing more occurrences of the terms.
 
 In the second example the query issued is the first document retrieved.
 As shown in this case the score achieved by the first document is way
