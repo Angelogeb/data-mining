@@ -6,6 +6,7 @@
 \usepackage{amsmath}
 \usepackage{amsthm}
 \usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{hyperref}
 \usepackage{enumitem}
 
@@ -51,13 +52,13 @@ We will now study some questions of $k$-means on 1 dimension.
     that you can solve it for fewer than $k$ clusters?)
 
     \textbf{Solution}: Let $X \subset \mathbb{R}, |X| = n$ be the set of points we want
-    to cluster and denote by $\mathbf{x} = (x_1, x_2, ..., x_n)$ the sequence of
+    to cluster, denote by $\mathbf{x} = (x_1, x_2, ..., x_n)$ the sequence of
     elements in $X$ sorted by value and let $\mathbf{x}[i:j] = (x_i, x_{i + 1}, ..., x_{j}) $.
-    The problem of $k$-means for $d = 1$ can be rewritten as finding $k$ indices
-    $i_1, i_2, ..., i_k$ that minimize
+    The problem of $k$-means for $d = 1$ can be rewritten as finding $k-1$ indices
+    $i_1, i_2, ..., i_{k-1}$ that minimize
     \begin{align*}
-      \sum_{j = 0}^{k - 1} \phi(\mathbf{x}[i_j:i_{j + 1}]), \qquad \text{with } i_0 =
-      1
+      \phi_k(\mathbf{x}) &= \sum_{j = 0}^{k - 1} \phi(\mathbf{x}[i_j:i_{j +
+      1}]), \qquad \text{with } i_0 = 1, \text{ } i_k = n
     \end{align*}
 
     where $\phi(\mathbf{y}), \mathbf{y} = (y_1, y_2, ..., y_m)$ is the
@@ -103,6 +104,70 @@ We will now study some questions of $k$-means on 1 dimension.
       \end{enumerate}
       The same holds for $x \le \mu(P_o)$ with $x_i$.
     \end{proof}
+
+    The Lemma above shows that restricting the partitions to intervals leads to
+    an optimal solution therefore the formulation above is correct.
+    Now we can solve the problem by performing an exhaustive search over the
+    possible values of $i_j$s.
+    
+    Assume we know the optimal cost
+    $\phi_{h - 1}^*(\mathbf{x}[1:m])$, $\forall m$: $h - 1 < m \le n$ for some
+    $h - 1 < k$. Then
+
+    \begin{align*}
+      \phi_{h}^*(\mathbf{x}[1:m]) = \min_{l = h}^m
+      \phi_{h-1}^*(\mathbf{x}[1:l - 1]) + \phi(\mathbf{x}[l:m]).
+    \end{align*}
+    
+    i.e. if we know the optimal clustering of size $h-1$ for all
+    prefixes of the points, we can derive the optimal clustering of size
+    $h$.
+    
+    This is possible since minimizing $\phi_h(\mathbf{y})$ is equivalent to
+    minimizing each $\phi(\mathbf{y}[i_{j}, i_{j + 1}])$ and once we know
+    $\phi_{h-1}^*(\mathbf{y}[1:m]) = \min_m \phi_{h-1}(\mathbf{y}[1:m])$ for each $m$, what is left to choose is
+    to which of the $m$ corresponds $i_{h-1}$ (the starting index of the
+    last cluster) which minimizes the cost.
+
+    We can compute a matrix $M$ where $M_{h,m} = \phi_h^*(\mathbf{x}[1:m])$
+    computed as shown by the formula above except for the first row which is
+    simply $\phi_1^*(\mathbf{x}[1:m]) = \phi(\mathbf{x}[1:m])$
+    and another matrix $S$ keeping for
+    each $M_{h,m}$ the index of the column in the previous row which minimized
+    the cost in order to reconstruct the solution.
+
+    \begin{align*}
+      M &= 
+      \begin{bmatrix}
+        \phi_1^*(\mathbf{x}[1:1]) & \phi_1^*(\mathbf{x}[1:2]) &
+        \phi_1^*(\mathbf{x}[1:3]) &\dots  & \phi_1^*(\mathbf{x}[1:n - 1]) &
+        \phi_1^*(\mathbf{x}[1:n]) \\
+        \bot & \phi_2^*(\mathbf{x}[1:2]) & \phi_2^*(\mathbf{x}[1:3]) & \dots &
+        \phi_2^*(\mathbf{x}[1:n - 1]) & \phi_2^*(\mathbf{x}[1:n]) \\
+        \bot & \bot & \phi_3^*(\mathbf{x}[1:3]) & \dots  & \phi_3^*(\mathbf{x}[1:n -
+        1]) & \phi_3^*(\mathbf{x}[1:n])\\
+        \vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
+        \bot & \bot & \bot & \dots  & \phi_k^*(\mathbf{x}[1:n - 1]) & \phi_k^*(\mathbf{x}[1:n])
+      \end{bmatrix} \\
+      S_{h,m} &= \arg \min_{l = h}^m
+      \phi_{h-1}^*(\mathbf{x}[1:l - 1]) + \phi(\mathbf{x}[l:m])
+    \end{align*}
+    
+    Thus in order to solve the problem we need to compute the $S$ matrix and
+    then find the indices by calling with parameters $k, n$ the following
+    function: \\ Indices($k', n')\triangleq $\textbf{ if} $k > 1$:
+    $\{S_{k',n'}\} \cup$
+    Indices($k'-1, S_{k',n'}$) \textbf{else}: $\emptyset $.
+
+    \textbf{Cost analysis}: In order to compute the optimal indices as shown
+    above the full $S$ matrix is needed therefore the cost in terms of space is
+    in $O(kn)$. The computation time of the algorithm is in $O(kn^3)$ since
+    the time for computing each cell of the matrix is in $O(n^2)$. The latter
+    cost can be reduced to be in $O(n)$ obtaining a computation time in
+    $O(kn^2)$ observing that $\phi(\mathbf{x}[l:m])$ can be computed once in a
+    given row using any online algorithm for the Total Sum of Squares (or
+    Corrected Sum of Squares). We overlooked the cost of sorting the points
+    since it does not affect the computation time in Big-O notation.
 \end{enumerate}
 
     \iffalse
