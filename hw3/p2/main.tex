@@ -53,7 +53,8 @@ We will now study some questions of $k$-means on 1 dimension.
 
     \textbf{Solution}: Let $X \subset \mathbb{R}, |X| = n$ be the set of points we want
     to cluster, denote by $\mathbf{x} = (x_1, x_2, ..., x_n)$ the sequence of
-    elements in $X$ sorted by value and let $\mathbf{x}[i:j] = (x_i, x_{i + 1}, ..., x_{j}) $.
+    elements in $X$ sorted by value and let $\mathbf{x}[i:j] = (x_i, x_{i + 1},
+    ..., x_{j-1}) $.
     The problem of $k$-means for $d = 1$ can be rewritten as finding $k-1$ indices
     $i_1, i_2, ..., i_{k-1}$ that minimize
     \begin{align*}
@@ -116,7 +117,7 @@ We will now study some questions of $k$-means on 1 dimension.
 
     \begin{align*}
       \phi_{h}^*(\mathbf{x}[1:m]) = \min_{l = h}^m
-      \phi_{h-1}^*(\mathbf{x}[1:l - 1]) + \phi(\mathbf{x}[l:m]).
+      \phi_{h-1}^*(\mathbf{x}[1:l]) + \phi(\mathbf{x}[l:m]).
     \end{align*}
     
     i.e. if we know the optimal clustering of size $h-1$ for all
@@ -140,24 +141,25 @@ We will now study some questions of $k$-means on 1 dimension.
       M &= 
       \begin{bmatrix}
         \phi_1^*(\mathbf{x}[1:1]) & \phi_1^*(\mathbf{x}[1:2]) &
-        \phi_1^*(\mathbf{x}[1:3]) &\dots  & \phi_1^*(\mathbf{x}[1:n - 1]) &
-        \phi_1^*(\mathbf{x}[1:n]) \\
+        \phi_1^*(\mathbf{x}[1:3]) &\dots  & \phi_1^*(\mathbf{x}[1:n]) &
+        \phi_1^*(\mathbf{x}[1:n + 1]) \\
         \bot & \phi_2^*(\mathbf{x}[1:2]) & \phi_2^*(\mathbf{x}[1:3]) & \dots &
-        \phi_2^*(\mathbf{x}[1:n - 1]) & \phi_2^*(\mathbf{x}[1:n]) \\
-        \bot & \bot & \phi_3^*(\mathbf{x}[1:3]) & \dots  & \phi_3^*(\mathbf{x}[1:n -
-        1]) & \phi_3^*(\mathbf{x}[1:n])\\
+        \phi_2^*(\mathbf{x}[1:n]) & \phi_2^*(\mathbf{x}[1:n + 1]) \\
+        \bot & \bot & \phi_3^*(\mathbf{x}[1:3]) & \dots  &
+        \phi_3^*(\mathbf{x}[1:n]) & \phi_3^*(\mathbf{x}[1:n + 1])\\
         \vdots & \vdots & \vdots & \ddots & \vdots & \vdots \\
-        \bot & \bot & \bot & \dots  & \phi_k^*(\mathbf{x}[1:n - 1]) & \phi_k^*(\mathbf{x}[1:n])
+        \bot & \bot & \bot & \dots  & \phi_k^*(\mathbf{x}[1:n]) &
+        \phi_k^*(\mathbf{x}[1:n + 1])
       \end{bmatrix} \\
       S_{h,m} &= \arg \min_{l = h}^m
-      \phi_{h-1}^*(\mathbf{x}[1:l - 1]) + \phi(\mathbf{x}[l:m])
+      \phi_{h-1}^*(\mathbf{x}[1:l]) + \phi(\mathbf{x}[l:m])
     \end{align*}
     
     Thus in order to solve the problem we need to compute the $S$ matrix and
     then find the indices by calling with parameters $k, n$ the following
     function: \\ Indices($k', n')\triangleq $\textbf{ if} $k > 1$:
     $\{S_{k',n'}\} \cup$
-    Indices($k'-1, S_{k',n'}$) \textbf{else}: $\emptyset $.
+    Indices($k'-1, S_{k',n'} - 1$) \textbf{else}: $\emptyset $.
 
     \textbf{Cost analysis}: In order to compute the optimal indices as shown
     above the full $S$ matrix is needed therefore the cost in terms of space is
