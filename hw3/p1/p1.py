@@ -4,9 +4,11 @@ import numpy as np
 
 np.seterr(divide="ignore", invalid="ignore")
 
+from collections import Counter
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
-from sklearn.cluster import k_means
+from sklearn.cluster import k_means, AgglomerativeClustering
 from sklearn.metrics import davies_bouldin_score
 from sklearn.preprocessing import normalize
 
@@ -18,6 +20,14 @@ def _kmeans(seed):
         return k_means(X, n_clusters=k, random_state=seed, n_jobs=1)
 
     return clos
+
+
+agg = AgglomerativeClustering(
+    affinity="cosine",
+    linkage="average",
+    memory=".",
+    compute_full_tree=True,
+)
 
 
 seed = 42
@@ -46,7 +56,15 @@ def score_of(k):
     _, proj_label, J_proj = kmeans(X_proj_k, k)
     proj_score = davies_bouldin_score(dense_X, proj_label)
 
-    print("k: {}, davies X: {}, davies X_proj: {}, J X: {}, J X_proj: {}".format(k, score, proj_score, J, J_proj))
+    print(
+        "k: {}, davies X: {}, davies X_proj: {}, J X: {}".format(
+            k, score, proj_score, J
+        )
+    )
 
-for k in range(2, 100, 4):
-    score_of(k)
+
+for k in range(2, 100, 3):
+    agg.set_params(n_clusters=k)
+    label = agg.fit_predict(dense_X)
+    score = davies_bouldin_score(dense_X, label)
+    print(Counter(label))
