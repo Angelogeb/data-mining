@@ -223,12 +223,14 @@ We will now study some questions of $k$-means on 1 dimension.
         - 2 \left( \frac{\ell_{i+1} + \ell_i }{2} \right) \ell_i + \ell_i^2) +
         \sum_{i = 1}^{1/2\epsilon - 1 }\sum_{x \in P_i^-} (
         2 \left( - \frac{\ell_{i+1} + \ell_i }{2} \right) \ell_i + \ell_i^2) \\
-        &= \norm{P}^2 - 2\sum_{i = 1}^{1/2\epsilon - 1}\sum_{x \in P_i^+} (\ell_i
-        \ell_{i + 1}) \\
+        &\le \norm{P}^2 - 2\sum_{i = 1}^{1/2\epsilon - 1}
+        \min \left\{ \sum_{x \in P_i^+} (\ell_i
+        \ell_{i + 1}), \sum_{x \in P_i^-} (\ell_i
+        \ell_{i + 1}) \right\}\\
         &\le \norm{P}^2 - 2\sum_{i = 1}^{1/2\epsilon - 1} (\ell_i \ell_{i + 1}) \\
         &=\norm{P}^2 - \frac{\epsilon - 1}{2\epsilon - 1}\norm{P}^2 \sum_{i = 1}^{1/2\epsilon - 1} \frac{1}{i (i
         + 1)} \qquad \qquad \qquad \text{if } \ell_i = \frac{1}{i \sqrt2}
-        (\norm{P}^2)^{\frac{1}{2}}\frac{\epsilon - 1}{2\epsilon - 1}\\
+        (\norm{P}^2)^{\frac{1}{2}} \sqrt{ \frac{\epsilon - 1}{2\epsilon - 1} } \\
         &= \epsilon \norm{P}^2
       \end{align*}
 \end{enumerate}
