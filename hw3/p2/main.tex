@@ -15,6 +15,8 @@
 
 \newtheorem{lemma}{Lemma}
 
+\everymath{\displaystyle}
+
 \title{Data Mining: Homework 3}
 \author{Anxhelo Xhebraj \\
         \href{mailto:xhebraj.1643777@studenti.uniroma1.it}{\texttt{xhebraj.1643777@studenti.uniroma1.it}}
@@ -170,6 +172,65 @@ We will now study some questions of $k$-means on 1 dimension.
     given row using any online algorithm for the Total Sum of Squares (or
     Corrected Sum of Squares). We overlooked the cost of sorting the points
     since it does not affect the computation time in Big-O notation.
+
+  \item We are given a set $P$ of $n$ points in $\mathbb{R}$. For simplicity,
+    assume that $\mu(P) = 0$, that is, $\sum_{x \in P} x = 0$. Let $\norm{P}^2 =
+    \sum_{x \in P} x^2$ be the optimal 1-means cost. Show that by adding
+    carefully $O(1/\epsilon)$ centers, we can make the $k$-means cost at most
+    $\epsilon \cdot \sum_{x \in P} x^2$.
+
+    \textbf{Hint:} First show that by adding 2 centers at locations $-\ell$ and
+    $\ell$, for an appropriate value of $\ell$, the cost decreases by a factor of
+    3/4.
+
+    \textbf{Solution}:
+    Assume we add $1/2\epsilon$ pairs of \textit{symmetric} centers $\ell_1,
+    \ell_2, ..., \ell_{1/2\epsilon}$ and $-\ell_1,
+    -\ell_2, ..., -\ell_{1/2\epsilon}$ with $\ell_{i - 1} \le \ell_i$ and
+    $\ell_i \ge 0, \forall i$  and denote
+    by $P_i^+$ the set of points
+    assigned to center $\ell_i$ and $P_i^-$ the ones assigned to $- \ell_i$.
+    Also let $P_0$ be the set of points assigned to center $0$.
+    Then we can write the cost as
+
+    \begin{align*}
+      &\phi =\sum_{x \in P_0} x^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^+}
+      (x - \ell_i)^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^-} (x + \ell_i)^2 \\
+      &=\sum_{x \in P_0} x^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^+} (x^2
+      - 2x\ell_i + \ell_i^2)
+      + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^-} (x^2
+      + 2x\ell_i + \ell_i^2)\\
+      &=\sum_{x \in P} x^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^+} (
+      - 2x\ell_i + \ell_i^2) + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^-} (
+      2x\ell_i + \ell_i^2)\\
+      &=\norm{P}^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^+} (
+      - 2x\ell_i + \ell_i^2) + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^-} (
+      2x\ell_i + \ell_i^2).
+    \end{align*}
+      We can observe that $\forall x \in P_i \land 1 \le i < 1/2\epsilon $
+      holds $|x| \ge \frac{\ell_{i+1} + \ell_i }{2}$ and for $ i = 1/2\epsilon$,
+      $|x|
+      \ge \frac{l_i}{2}$ i.e. the points belonging to a center $i$ should be
+      closer to center $i$ than $i + 1$ (preceding center). Given that in the
+      sums above $\forall x \in P_i^+ \rightarrow -2x\ell_i \le 0$ and $\forall x
+      \in P_i^- \rightarrow 2x\ell_i \le 0$ we can write
+
+      \begin{align*}
+        \phi &= \norm{P}^2 + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^+} (
+        - 2x\ell_i + \ell_i^2) + \sum_{i = 1}^{1/2\epsilon}\sum_{x \in P_i^-} (
+        2x\ell_i + \ell_i^2) \\
+        &\le \norm{P}^2 + \sum_{i = 1}^{1/2\epsilon - 1}\sum_{x \in P_i^+} (
+        - 2 \left( \frac{\ell_{i+1} + \ell_i }{2} \right) \ell_i + \ell_i^2) +
+        \sum_{i = 1}^{1/2\epsilon - 1 }\sum_{x \in P_i^-} (
+        2 \left( - \frac{\ell_{i+1} + \ell_i }{2} \right) \ell_i + \ell_i^2) \\
+        &= \norm{P}^2 - 2\sum_{i = 1}^{1/2\epsilon - 1}\sum_{x \in P_i^+} (\ell_i
+        \ell_{i + 1}) \\
+        &\le \norm{P}^2 - 2\sum_{i = 1}^{1/2\epsilon - 1} (\ell_i \ell_{i + 1}) \\
+        &=\norm{P}^2 - \frac{\epsilon - 1}{2\epsilon - 1}\norm{P}^2 \sum_{i = 1}^{1/2\epsilon - 1} \frac{1}{i (i
+        + 1)} \qquad \qquad \qquad \text{if } \ell_i = \frac{1}{i \sqrt2}
+        (\norm{P}^2)^{\frac{1}{2}}\frac{\epsilon - 1}{2\epsilon - 1}\\
+        &= \epsilon \norm{P}^2
+      \end{align*}
 \end{enumerate}
 
     \iffalse
