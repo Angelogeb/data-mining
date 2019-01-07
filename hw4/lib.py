@@ -74,13 +74,13 @@ class LSTM_model(object):
 
         self.plot_Y = self.Y[:: self.out_timesteps].reshape(-1)
 
-        split = int(len(self.X) * self.train_ratio)
+        self.split = int(len(self.X) * self.train_ratio)
 
-        self.orig_train = self.orig_X[:split], self.orig_Y[:split]
-        self.orig_test = self.orig_X[split:], self.orig_Y[split:]
+        self.orig_train = self.orig_X[:self.split], self.orig_Y[:self.split]
+        self.orig_test = self.orig_X[self.split:], self.orig_Y[self.split:]
 
-        self.train = self.X[:split], self.Y[:split]
-        self.test = self.X[split:], self.Y[split:]
+        self.train = self.X[:self.split], self.Y[:self.split]
+        self.test = self.X[self.split:], self.Y[self.split:]
 
         return self
 
@@ -97,14 +97,16 @@ class LSTM_model(object):
         pred = self._get_orig_predicted(self.model.predict(self.test[0]), self.orig_test[0])[
             :: self.out_timesteps
         ].reshape(-1)
-        timesteps = self.steps[:len(self.steps) - (len(self.steps) - len(pred))]
+        timesteps = self.steps[self.split:]
+        timesteps = timesteps[:len(timesteps) - (len(timesteps) - len(pred))]
         return timesteps, pred, self.orig_test[1][::self.out_timesteps].reshape(-1)
 
     def get_pred_train_pair(self):
         pred = self._get_orig_predicted(
             self.model.predict(self.train[0]), self.orig_train[0]
         )[:: self.out_timesteps].reshape(-1)
-        timesteps = self.steps[:len(self.steps) - (len(self.steps) - len(pred))]
+        timesteps = self.steps[:self.split]
+        timesteps = timesteps[:len(self.steps) - (len(self.steps) - len(pred))]
         return timesteps, pred, self.orig_train[1][::self.out_timesteps].reshape(-1)
 
     def get_test_mae(self):
