@@ -9,7 +9,6 @@ from keras.optimizers import Adam
 
 EPISODES = 1000
 
-
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
@@ -21,11 +20,12 @@ class DQNAgent:
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
         self.model = self._build_model()
+        self.training = True
 
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation="relu"))
+        model.add(Dense(24, input_dim=self.state_size + 2, activation="relu"))
         model.add(Dropout(0.5))
         model.add(Dense(24, activation="relu"))
         model.add(Dropout(0.5))
@@ -37,7 +37,7 @@ class DQNAgent:
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
-        if np.random.rand() <= self.epsilon:
+        if self.training and np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])  # returns action
@@ -65,6 +65,7 @@ class DQNAgent:
 
 class BitcoinStockEnvironment:
     def __init__(self, data, budget, w_size):
+        self.BTC_AMOUNT = 0.5
         self.windows = None
         self.curr_window = 0
         self.initial_budget = budget
@@ -83,86 +84,43 @@ class BitcoinStockEnvironment:
         self.budget = self.initial_budget
         self.btc = 0
         self.current_liquidity = self.budget
-        return self.norm_windows[self.curr_window]
-
-    # Actions:
-    #   0: do nothing
-    #   1: buy everything
-    #   2: sell everything
-
-    def get_best_liquidity(self):
-        reward_buying = (
-            self.budget
-            / self.windows[self.curr_window][-1]
-            * self.windows[self.curr_window + 1][-1]
-        )
-        reward_selling = self.btc * self.windows[self.curr_window][-1]
-        reward_doing_nothing = (
-            self.btc * self.windows[self.curr_window + 1][-1] + self.budget
-        )
-        return max([reward_buying, reward_selling, reward_doing_nothing])
+        return np.append(self.norm_windows[self.curr_window], [self.budget, self.btc])
 
     def step(self, action):
         old_price = self.windows[self.curr_window][-1]
         invalid_action = False
-        best_liquidity = self.get_best_liquidity()
-        if action == 1:
-            # all in buying
-            if self.budget == 0:
-                invalid_action = True
-            self.btc += self.budget / old_price
-            self.budget = 0
-        elif action == 2:
-            # all in selling
-            if self.btc == 0:
-                invalid_action = True
-            self.budget += self.btc * old_price
-            self.btc = 0
-
         self.curr_window += 1
         curr_price = self.windows[self.curr_window][-1]
 
-        new_liquidity = self.btc * curr_price + self.budget
 
-        reward = new_liquidity / best_liquidity
-        if invalid_action:
-            reward /= 2
+        reward_buying = (self.BTC_AMOUNT * curr_price) - (
+            self.BTC_AMOUNT * old_price
+        )
+        reward_selling = (self.BTC_AMOUNT * old_price) - (
+            self.BTC_AMOUNT * curr_price
+        )
 
-        self.current_liquidity = new_liquidity
+        best_reward = max([reward_buying, reward_selling])
+        reward = -best_reward
+
+        if action == 0:
+            # buying
+            if self.budget < self.BTC_AMOUNT * old_price:
+                invalid_action = True
+            else:
+                self.btc += self.BTC_AMOUNT
+                self.budget -= self.BTC_AMOUNT * old_price
+                reward += reward_buying
+        elif action == 1:
+            # selling
+            if self.btc < self.BTC_AMOUNT:
+                invalid_action = True
+            else:
+                self.budget += self.BTC_AMOUNT * old_price
+                self.btc -= self.BTC_AMOUNT
+                reward += reward_selling
 
         done = self.curr_window == len(self.windows) - 1
 
-        return self.norm_windows[self.curr_window], reward, done
+        return np.append(self.norm_windows[self.curr_window], [self.budget, self.btc]), reward, done
 
-
-if __name__ == "__main__":
-    env = gym.make("CartPole-v1")
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
-    agent = DQNAgent(state_size, action_size)
-    # agent.load("./save/cartpole-dqn.h5")
-    done = False
-    batch_size = 32
-
-    for e in range(EPISODES):
-        state = env.reset()
-        state = np.reshape(state, [1, state_size])
-        for time in range(500):
-            # env.render()
-            action = agent.act(state)
-            next_state, reward, done, _ = env.step(action)
-            reward = reward if not done else -10
-            next_state = np.reshape(next_state, [1, state_size])
-            agent.remember(state, action, reward, next_state, done)
-            state = next_state
-            if done:
-                print(
-                    "episode: {}/{}, score: {}, e: {:.2}".format(
-                        e, EPISODES, time, agent.epsilon
-                    )
-                )
-                break
-            if len(agent.memory) > batch_size:
-                agent.replay(batch_size)
-        # if e % 10 == 0:
-        #     agent.save("./save/cartpole-dqn.h5")
