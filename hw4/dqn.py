@@ -1,6 +1,7 @@
+""" Adapted from https://github.com/keon/deep-q-learning """
+
 # -*- coding: utf-8 -*-
 import random
-import gym
 import numpy as np
 from collections import deque
 from keras.models import Sequential
@@ -8,6 +9,7 @@ from keras.layers import Dense, Dropout
 from keras.optimizers import Adam
 
 EPISODES = 1000
+
 
 class DQNAgent:
     def __init__(self, state_size, action_size):
@@ -75,33 +77,29 @@ class BitcoinStockEnvironment:
         self.windows = []
         n = len(data)
         for i in range(n - w_size + 1):
-            self.windows.append(data[i : i + w_size])
+            self.windows.append(data[i: i + w_size])
         self.windows = np.array(self.windows)
-        self.norm_windows = self.windows / self.windows[:, 0].reshape((-1, 1)) - 1
+        self.norm_windows = (
+            self.windows / self.windows[:, 0].reshape((-1, 1)) - 1
+        )
 
     def reset(self):
         self.curr_window = 0
         self.budget = self.initial_budget
         self.btc = 0
         self.current_liquidity = self.budget
-        return np.append(self.norm_windows[self.curr_window], [self.budget, self.btc])
+        return np.append(
+            self.norm_windows[self.curr_window], [self.budget, self.btc]
+        )
 
     def step(self, action):
         old_price = self.windows[self.curr_window][-1]
-        invalid_action = False
         self.curr_window += 1
+
+        previous_liquidity = old_price * self.btc + self.budget
+
         curr_price = self.windows[self.curr_window][-1]
-
-
-        reward_buying = (self.BTC_AMOUNT * curr_price) - (
-            self.BTC_AMOUNT * old_price
-        )
-        reward_selling = (self.BTC_AMOUNT * old_price) - (
-            self.BTC_AMOUNT * curr_price
-        )
-
-        best_reward = max([reward_buying, reward_selling])
-        reward = -best_reward
+        invalid_action = False
 
         if action == 0:
             # buying
@@ -110,7 +108,6 @@ class BitcoinStockEnvironment:
             else:
                 self.btc += self.BTC_AMOUNT
                 self.budget -= self.BTC_AMOUNT * old_price
-                reward += reward_buying
         elif action == 1:
             # selling
             if self.btc < self.BTC_AMOUNT:
@@ -118,9 +115,19 @@ class BitcoinStockEnvironment:
             else:
                 self.budget += self.BTC_AMOUNT * old_price
                 self.btc -= self.BTC_AMOUNT
-                reward += reward_selling
+
+        new_liquidity = self.btc * curr_price + self.budget
+
+        reward = new_liquidity / previous_liquidity
 
         done = self.curr_window == len(self.windows) - 1
-
-        return np.append(self.norm_windows[self.curr_window], [self.budget, self.btc]), reward, done
-
+        if done:
+            reward = (self.btc * curr_price + self.budget) / \
+                self.initial_budget
+        return (
+            np.append(
+                self.norm_windows[self.curr_window], [self.budget, self.btc]
+            ),
+            reward,
+            done,
+        )
